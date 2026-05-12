@@ -8,6 +8,7 @@ import yaml
 
 from adapters.base_model_adapter import BaseModelAdapter
 from agents.base_agent import BaseAgent
+from history.base_history_store import BaseHistoryStore
 from rag.base_vector_store import BaseVectorStore
 from skills.base_skill import BaseSkill
 from utils.logger import get_logger
@@ -21,6 +22,7 @@ class PluginRegistry:
         self.config = config
         self.model_adapters: Dict[str, BaseModelAdapter] = {}
         self.rag_stores: Dict[str, BaseVectorStore] = {}
+        self.history_store: Optional[BaseHistoryStore] = None
         self.skills: Dict[str, BaseSkill] = {}
         self.agents: Dict[str, BaseAgent] = {}
 
@@ -34,6 +36,7 @@ class PluginRegistry:
                 name: store.as_dict()
                 for name, store in self.rag_stores.items()
             },
+            "history_store": self.history_store.as_dict() if self.history_store else None,
             "agents": {
                 name: {
                     "description": agent.description,
@@ -73,6 +76,11 @@ def load_registry(config_path: str = "config.yaml") -> PluginRegistry:
         registry.rag_stores[store.name] = store
         logger.info("loaded rag store: %s", store.name)
 
+    history_entry = config.get("history_store")
+    if history_entry and history_entry.get("enabled", True):
+        registry.history_store = _load_history_store(history_entry, base_dir)
+        logger.info("loaded history store: %s", registry.history_store.name)
+
     for entry in config.get("skills", []):
         if not entry.get("enabled", True):
             continue
@@ -110,6 +118,15 @@ def _load_rag_store(
     base_dir: Path,
 ) -> BaseVectorStore:
     cls = _load_class(entry, base_dir, BaseVectorStore)
+    kwargs = dict(entry.get("config") or {})
+    return _instantiate(cls, kwargs)
+
+
+def _load_history_store(
+    entry: Dict[str, Any],
+    base_dir: Path,
+) -> BaseHistoryStore:
+    cls = _load_class(entry, base_dir, BaseHistoryStore)
     kwargs = dict(entry.get("config") or {})
     return _instantiate(cls, kwargs)
 

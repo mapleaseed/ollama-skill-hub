@@ -172,12 +172,22 @@ class TaskManager:
             name: store.health_check()
             for name, store in self.registry.rag_stores.items()
         }
+        history_store = (
+            self.registry.history_store.health_check()
+            if self.registry.history_store
+            else {"status": "disabled"}
+        )
         skills = {
             name: skill.health_check()
             for name, skill in self.registry.skills.items()
         }
         status = "ok"
-        checks = [*model_adapters.values(), *rag_stores.values(), *skills.values()]
+        checks = [
+            *model_adapters.values(),
+            *rag_stores.values(),
+            history_store,
+            *skills.values(),
+        ]
         if any(item.get("status") == "degraded" for item in checks):
             status = "degraded"
         return {
@@ -185,6 +195,7 @@ class TaskManager:
             "agents": list(self.registry.agents),
             "model_adapters": model_adapters,
             "rag_stores": rag_stores,
+            "history_store": history_store,
             "skills": skills,
         }
 

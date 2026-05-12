@@ -48,6 +48,7 @@ uvicorn api.server:app --host 127.0.0.1 --port 8008 --reload
 启动后访问：
 
 - `GET /admin`：打开管理页面
+- `GET /chat`：打开临时历史会话页面
 - `GET /health`：查看框架与外部服务状态
 - `GET /registry`：查看已加载 Agent/Skill
 - `GET /model-adapters`：查看已加载模型适配器
@@ -55,6 +56,11 @@ uvicorn api.server:app --host 127.0.0.1 --port 8008 --reload
 - `POST /task/submit`：提交任务
 - `POST /task/submit-form`：表单提交任务，支持最多 5 个上传文件
 - `POST /task/stream`：SSE 流式任务输出
+- `GET /api/sessions`：查看历史会话
+- `POST /api/sessions`：创建历史会话
+- `GET /api/sessions/{session_id}`：查看会话消息
+- `POST /api/sessions/{session_id}/run`：在指定会话中等待输出
+- `POST /api/sessions/{session_id}/stream`：在指定会话中流式输出
 - `POST /admin/reload`：重载配置
 
 ## 管理页面
@@ -73,6 +79,25 @@ http://127.0.0.1:8008/admin
 - 控制 Thinking 模式
 - 切换等待输出或流式输出
 - 上传最多 5 个文件；图片会转换为 base64 传给 Ollama `images` 字段，文本文件会附加到任务上下文
+
+## 临时历史会话
+
+启动服务后打开：
+
+```text
+http://127.0.0.1:8008/chat
+```
+
+会话页支持：
+
+- SQLite 临时历史会话，默认文件为 `data/history.sqlite3`
+- 左侧卡片式历史瀑布流
+- 右侧当前会话消息流
+- 底部固定输入框
+- 模型适配器和模型名默认可见，高级设置面板用于调整 Agent、Skill、RAG、Thinking 和输出方式
+- 每条 Assistant 消息内嵌 Thinking 折叠区
+- 等待输出和 SSE 流式输出
+- 文件上传、多模态图片 base64 传递和文本附件上下文注入
 
 ## 提交任务示例
 

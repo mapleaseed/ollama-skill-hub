@@ -43,6 +43,12 @@ rag_stores:
     config:
       uri: 'http://localhost:19530'
       collection: 'ollama_skill_hub'
+history_store:
+  name: SQLiteHistoryStore
+  path: './history/sqlite_history_store.py'
+  enabled: true
+  config:
+    db_path: './data/history.sqlite3'
 agents:
   - name: DefaultPlanner
     path: './agents/default_planner.py'
