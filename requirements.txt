@@ -1,0 +1,9 @@
+fastapi
+httpx
+requests
+pyyaml
+uvicorn
+
+# Optional RAG backends. Install only when enabling the matching rag_store.
+# chromadb
+# pymilvus

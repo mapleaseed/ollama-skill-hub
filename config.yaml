@@ -1,0 +1,71 @@
+ollama:
+  base_url: 'http://localhost:11434'
+  url: 'http://localhost:11434/api/chat'
+  default_adapter: 'Qwen3ChatAdapter'
+  default_model: 'qwen3:14b'
+  embedding_model: 'bge-m3:latest'
+  timeout: 120
+mcp:
+  url: 'http://localhost:8000'
+model_adapters:
+  - name: Qwen3ChatAdapter
+    path: './adapters/ollama_adapter.py'
+    enabled: true
+    config:
+      model: 'qwen3:14b'
+      timeout: 120
+      think: false
+  - name: BgeM3EmbeddingAdapter
+    path: './adapters/ollama_adapter.py'
+    enabled: true
+    config:
+      model: 'bge-m3:latest'
+      timeout: 120
+  - name: Qwen3VLAdapter
+    path: './adapters/ollama_adapter.py'
+    enabled: false
+    config:
+      model: 'qwen3-vl:8b'
+      timeout: 120
+rag_stores:
+  - name: NullVectorStore
+    path: './rag/null_store.py'
+    enabled: true
+  - name: ChromaVectorStore
+    path: './rag/chroma_store.py'
+    enabled: false
+    config:
+      path: './data/chroma'
+      collection: 'ollama_skill_hub'
+  - name: MilvusVectorStore
+    path: './rag/milvus_store.py'
+    enabled: false
+    config:
+      uri: 'http://localhost:19530'
+      collection: 'ollama_skill_hub'
+agents:
+  - name: DefaultPlanner
+    path: './agents/default_planner.py'
+    enabled: true
+    enabled_skills:
+      - OllamaSkill
+      - LocalSkill
+      - RAGSkill
+skills:
+  - name: OllamaSkill
+    path: './skills/ollama_skill.py'
+    enabled: true
+    config:
+      adapter_name: 'Qwen3ChatAdapter'
+  - name: MCPSkill
+    path: './skills/mcp_skill.py'
+    enabled: false
+  - name: LocalSkill
+    path: './skills/local_skill.py'
+    enabled: true
+  - name: RAGSkill
+    path: './skills/rag_skill.py'
+    enabled: true
+    config:
+      embedding_adapter_name: 'BgeM3EmbeddingAdapter'
+      vector_store_name: 'NullVectorStore'
