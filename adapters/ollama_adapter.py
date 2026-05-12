@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urlparse, urlunparse
 
 import requests
@@ -33,7 +34,104 @@ class OllamaModelAdapter(BaseModelAdapter):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         model = kwargs.get("model") or kwargs.get("model_name") or self.model
-        stream = kwargs.get("stream", False)
+        payload_kwargs = dict(kwargs)
+        payload_kwargs.pop("stream", None)
+        payload_kwargs.pop("model", None)
+        payload_kwargs.pop("model_name", None)
+        payload = self._build_payload(
+            prompt=prompt,
+            system=system,
+            model=model,
+            stream=False,
+            **payload_kwargs,
+        )
+
+        resp = requests.post(self.chat_url, json=payload, timeout=self.timeout)
+        resp.raise_for_status()
+        raw = resp.json()
+        return {
+            "adapter": self.name,
+            "model": model,
+            "content": self._extract_content(raw),
+            "thinking": self._extract_thinking(raw),
+            "raw": raw,
+        }
+
+    def stream_generate(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Iterator[Dict[str, Any]]:
+        model = kwargs.get("model") or kwargs.get("model_name") or self.model
+        payload_kwargs = dict(kwargs)
+        payload_kwargs.pop("stream", None)
+        payload_kwargs.pop("model", None)
+        payload_kwargs.pop("model_name", None)
+        payload = self._build_payload(
+            prompt=prompt,
+            system=system,
+            model=model,
+            stream=True,
+            **payload_kwargs,
+        )
+        with requests.post(
+            self.chat_url,
+            json=payload,
+            timeout=self.timeout,
+            stream=True,
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                raw = json.loads(line)
+                yield {
+                    "adapter": self.name,
+                    "model": model,
+                    "content": self._extract_content(raw),
+                    "thinking": self._extract_thinking(raw),
+                    "done": raw.get("done", False),
+                    "raw": raw,
+                }
+
+    def health_check(self) -> Dict[str, Any]:
+        try:
+            resp = requests.get(self._tags_url(), timeout=3)
+            resp.raise_for_status()
+            data = resp.json()
+            models = [item.get("name") for item in data.get("models", [])]
+            status = "ok" if self.model in models else "degraded"
+            result = {
+                "status": status,
+                "adapter": self.name,
+                "model": self.model,
+                "base_url": self.base_url,
+                "models": models,
+            }
+            if status != "ok":
+                result["error"] = f"模型未安装或不可见: {self.model}"
+            return result
+        except Exception as exc:
+            return {
+                "status": "degraded",
+                "adapter": self.name,
+                "model": self.model,
+                "base_url": self.base_url,
+                "error": str(exc),
+            }
+
+    def _tags_url(self) -> str:
+        return f"{self.base_url}/api/tags"
+
+    def _build_payload(
+        self,
+        prompt: str,
+        system: Optional[str],
+        model: str,
+        stream: bool,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
         options = {**self.options, **(kwargs.get("options") or {})}
         images = kwargs.get("images") or []
 
@@ -67,45 +165,7 @@ class OllamaModelAdapter(BaseModelAdapter):
         if think is not None:
             payload["think"] = think
 
-        resp = requests.post(self.chat_url, json=payload, timeout=self.timeout)
-        resp.raise_for_status()
-        raw = resp.json()
-        return {
-            "adapter": self.name,
-            "model": model,
-            "content": self._extract_content(raw),
-            "thinking": self._extract_thinking(raw),
-            "raw": raw,
-        }
-
-    def health_check(self) -> Dict[str, Any]:
-        try:
-            resp = requests.get(self._tags_url(), timeout=3)
-            resp.raise_for_status()
-            data = resp.json()
-            models = [item.get("name") for item in data.get("models", [])]
-            status = "ok" if self.model in models else "degraded"
-            result = {
-                "status": status,
-                "adapter": self.name,
-                "model": self.model,
-                "base_url": self.base_url,
-                "models": models,
-            }
-            if status != "ok":
-                result["error"] = f"模型未安装或不可见: {self.model}"
-            return result
-        except Exception as exc:
-            return {
-                "status": "degraded",
-                "adapter": self.name,
-                "model": self.model,
-                "base_url": self.base_url,
-                "error": str(exc),
-            }
-
-    def _tags_url(self) -> str:
-        return f"{self.base_url}/api/tags"
+        return payload
 
     @staticmethod
     def _normalize_base_url(base_url: str, url: Optional[str]) -> str:

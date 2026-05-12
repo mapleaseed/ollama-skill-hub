@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import json
+from typing import Dict, Iterator, Optional
 
 from orchestrator.dependency_resolver import resolve_steps
 from orchestrator.task_queue import TaskQueue
@@ -35,7 +36,8 @@ class TaskManager:
 
             self.queue.update(record.id, status="running", steps=steps)
             for step in steps:
-                result = agent.dispatch(step, params)
+                runtime_params = self._params_with_context(params, step_results)
+                result = agent.dispatch(step, runtime_params)
                 ok = agent.monitor(step, result)
                 step_result = {
                     "id": step["id"],
@@ -66,6 +68,90 @@ class TaskManager:
             }
             self.queue.update(record.id, status="failed", error=str(exc), result=error_result)
             return error_result
+
+    def stream(
+        self,
+        task: str,
+        agent_name: Optional[str] = None,
+        params: Optional[Dict] = None,
+    ) -> Iterator[str]:
+        if not task:
+            yield self._sse({"event": "error", "error": "task 不能为空"})
+            return
+
+        params = params or {}
+        agent = self._get_agent(agent_name)
+        record = self.queue.create(task=task, agent=agent.name)
+        step_results = []
+
+        try:
+            self.queue.update(record.id, status="planning")
+            planned_steps = agent.plan(task, params)
+            steps = resolve_steps(planned_steps)
+            self.queue.update(record.id, status="running", steps=steps)
+            yield self._sse({"event": "task", "task_id": record.id, "status": "running"})
+
+            for index, step in enumerate(steps):
+                runtime_params = self._params_with_context(params, step_results)
+                is_last_step = index == len(steps) - 1
+                if is_last_step and step["skill"] == "OllamaSkill":
+                    skill = agent.get_skill(step["skill"])
+                    if not hasattr(skill, "stream_execute"):
+                        raise RuntimeError("OllamaSkill 不支持流式输出")
+                    skill_inputs = agent.build_skill_inputs(step, runtime_params)
+                    content_parts = []
+                    thinking_parts = []
+                    for chunk in skill.stream_execute(skill_inputs):
+                        content = chunk.get("content") or ""
+                        thinking = chunk.get("thinking") or ""
+                        if content:
+                            content_parts.append(content)
+                            yield self._sse({"event": "content", "delta": content})
+                        if thinking:
+                            thinking_parts.append(thinking)
+                            yield self._sse({"event": "thinking", "delta": thinking})
+
+                    result = {
+                        "skill": skill.name,
+                        "adapter": skill_inputs.get("model_adapter") or skill_inputs.get("adapter"),
+                        "model": skill_inputs.get("model") or skill_inputs.get("model_name"),
+                        "content": "".join(content_parts),
+                        "thinking": "".join(thinking_parts),
+                    }
+                else:
+                    result = agent.dispatch(step, runtime_params)
+
+                ok = agent.monitor(step, result)
+                step_result = {
+                    "id": step["id"],
+                    "name": step.get("name"),
+                    "skill": step["skill"],
+                    "ok": ok,
+                    "result": result,
+                }
+                step_results.append(step_result)
+                yield self._sse({"event": "step", "step": step_result})
+                if not ok:
+                    raise RuntimeError(f"步骤执行失败: {step['id']}")
+
+            final_result = {
+                "task_id": record.id,
+                "agent": agent.name,
+                "status": "success",
+                "steps": step_results,
+                "content": self._last_content(step_results),
+            }
+            self.queue.update(record.id, status="success", result=final_result)
+            yield self._sse({"event": "done", "result": final_result})
+        except Exception as exc:
+            error_result = {
+                "task_id": record.id,
+                "agent": agent.name,
+                "status": "failed",
+                "error": str(exc),
+            }
+            self.queue.update(record.id, status="failed", error=str(exc), result=error_result)
+            yield self._sse({"event": "error", **error_result})
 
     def get_task(self, task_id: str) -> Optional[Dict]:
         record = self.queue.get(task_id)
@@ -118,3 +204,21 @@ class TaskManager:
             return ""
         result = step_results[-1].get("result", {})
         return result.get("content") or str(result)
+
+    @staticmethod
+    def _params_with_context(params: Dict, step_results) -> Dict:
+        context_parts = []
+        if params.get("context"):
+            context_parts.append(str(params["context"]))
+        for step_result in step_results:
+            result = step_result.get("result", {})
+            content = result.get("content")
+            if content:
+                context_parts.append(str(content))
+        if not context_parts:
+            return params
+        return {**params, "context": "\n\n".join(context_parts)}
+
+    @staticmethod
+    def _sse(payload: Dict) -> str:
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"

@@ -36,11 +36,21 @@ class OllamaSkill(BaseSkill):
         options = dict(inputs)
         options.pop('prompt', None)
         options.pop('system', None)
+        options['stream'] = False
         result = adapter.generate(prompt=prompt, system=system, **options)
         return {
             'skill': self.name,
             **result,
         }
+
+    def stream_execute(self, inputs: dict):
+        prompt = inputs['prompt']
+        adapter = self._select_adapter(inputs)
+        system = inputs.get('system')
+        options = dict(inputs)
+        options.pop('prompt', None)
+        options.pop('system', None)
+        yield from adapter.stream_generate(prompt=prompt, system=system, **options)
 
     def health_check(self) -> dict:
         adapter = self.model_adapters.get(self.adapter_name)

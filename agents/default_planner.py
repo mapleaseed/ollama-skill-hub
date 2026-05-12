@@ -10,6 +10,31 @@ class DefaultPlanner(BaseAgent):
         if workflow:
             return [self._normalize_step(index, step) for index, step in enumerate(workflow, start=1)]
 
+        requested_skill = params.get('skill')
+        if (
+            params.get('rag_enabled')
+            and requested_skill in (None, '', 'OllamaSkill')
+            and 'RAGSkill' in self.enabled_skills
+            and 'OllamaSkill' in self.enabled_skills
+        ):
+            return [
+                {
+                    'id': 'step-1',
+                    'name': 'retrieve_context',
+                    'skill': 'RAGSkill',
+                    'prompt': task_description,
+                    'params': {'mode': 'search'},
+                    'depends_on': [],
+                },
+                {
+                    'id': 'step-2',
+                    'name': 'reason_with_context',
+                    'skill': 'OllamaSkill',
+                    'prompt': task_description,
+                    'depends_on': ['step-1'],
+                },
+            ]
+
         skill_name = self._select_skill(task_description, params)
         return [
             {
@@ -22,8 +47,12 @@ class DefaultPlanner(BaseAgent):
         ]
 
     def dispatch(self, step: dict, params: dict):
+        skill_inputs = self.build_skill_inputs(step, params)
+        skill = self.get_skill(step['skill'])
+        return skill.execute(skill_inputs)
+
+    def build_skill_inputs(self, step: dict, params: dict):
         skill_name = step['skill']
-        skill = self.get_skill(skill_name)
         skill_inputs = {
             **params,
             **step.get('params', {}),
@@ -32,8 +61,15 @@ class DefaultPlanner(BaseAgent):
 
         if skill_name == 'OllamaSkill':
             skill_inputs.setdefault('system', self._hermes_system_prompt())
+            context = skill_inputs.get('context')
+            if context:
+                skill_inputs['prompt'] = (
+                    '请基于以下上下文回答用户任务。\n\n'
+                    f'上下文:\n{context}\n\n'
+                    f'用户任务:\n{skill_inputs["prompt"]}'
+                )
 
-        return skill.execute(skill_inputs)
+        return skill_inputs
 
     def monitor(self, step: str, result: dict) -> bool:
         return not result.get('error')

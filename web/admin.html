@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ollama Skill Hub</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f6;
+      --text: #20242a;
+      --muted: #66717f;
+      --line: #dce2e8;
+      --accent: #2f6f73;
+      --accent-strong: #1f575a;
+      --warn: #9a5b16;
+      --danger: #a33131;
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    button,
+    select,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 34px;
+      padding: 7px 12px;
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    button.primary:hover {
+      background: var(--accent-strong);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      min-height: calc(100vh - 64px);
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    section > h2 {
+      margin: 0;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 650;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .body {
+      padding: 14px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    select,
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 7px 9px;
+    }
+
+    textarea {
+      min-height: 168px;
+      resize: vertical;
+    }
+
+    .switch-row,
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .check-row {
+      justify-content: flex-start;
+    }
+
+    .switch-row input,
+    .check-row input {
+      width: 16px;
+      height: 16px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .segmented button {
+      border: 0;
+      border-radius: 0;
+      min-height: 34px;
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .skill-list {
+      display: grid;
+      gap: 7px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--muted);
+      background: #fff;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--warn);
+    }
+
+    .dot.ok {
+      background: var(--accent);
+    }
+
+    .dot.error {
+      background: var(--danger);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .output-layout {
+      display: grid;
+      grid-template-rows: auto minmax(220px, 1fr) minmax(140px, 240px);
+      height: 100%;
+    }
+
+    .output-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .output,
+    .thinking {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "JetBrains Mono", monospace;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .thinking {
+      border-top: 1px solid var(--line);
+      background: #fffaf3;
+      color: #604018;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .file-line {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 18px;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .output-layout {
+        height: 70vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ollama Skill Hub</h1>
+    <div id="healthStatus" class="status"><span class="dot"></span><span>checking</span></div>
+  </header>
+
+  <main>
+    <section>
+      <h2>运行配置</h2>
+      <div class="body stack">
+        <label>
+          Agent
+          <select id="agentSelect"></select>
+        </label>
+
+        <label>
+          Skill
+          <select id="skillSelect"></select>
+        </label>
+
+        <label>
+          Agent Skill 白名单
+          <div id="skillChecks" class="skill-list"></div>
+        </label>
+
+        <div class="actions">
+          <button id="saveAgentSkills" type="button">保存组合</button>
+        </div>
+
+        <div class="grid-2">
+          <label>
+            模型适配器
+            <select id="modelAdapterSelect"></select>
+          </label>
+          <label>
+            模型名
+            <input id="modelInput" type="text" autocomplete="off">
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label>
+            RAG 数据库
+            <select id="ragStoreSelect"></select>
+          </label>
+          <label>
+            Top K
+            <input id="topKInput" type="number" min="1" max="20" value="5">
+          </label>
+        </div>
+
+        <div class="switch-row">
+          <span>开启 RAG</span>
+          <input id="ragToggle" type="checkbox">
+        </div>
+
+        <div class="switch-row">
+          <span>Thinking 模式</span>
+          <input id="thinkingToggle" type="checkbox">
+        </div>
+
+        <label>
+          输出模式
+          <div class="segmented">
+            <button id="waitMode" class="active" type="button">等待输出</button>
+            <button id="streamMode" type="button">流式输出</button>
+          </div>
+        </label>
+
+        <label>
+          上传文件
+          <input id="fileInput" type="file" multiple>
+        </label>
+        <div id="fileLine" class="file-line">0 / 5</div>
+
+        <label>
+          任务
+          <textarea id="taskInput">只回复 OK，不要解释。</textarea>
+        </label>
+
+        <div class="actions">
+          <button id="reloadButton" type="button">重载配置</button>
+          <button id="runButton" class="primary" type="button">执行</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="output-layout">
+      <div class="output-toolbar">
+        <div>
+          <strong>输出</strong>
+          <div id="runMeta" class="meta">idle</div>
+        </div>
+        <button id="clearButton" type="button">清空</button>
+      </div>
+      <pre id="output" class="output"></pre>
+      <pre id="thinking" class="thinking"></pre>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      registry: null,
+      health: null,
+      stream: false
+    };
+
+    const els = {
+      healthStatus: document.getElementById("healthStatus"),
+      agentSelect: document.getElementById("agentSelect"),
+      skillSelect: document.getElementById("skillSelect"),
+      skillChecks: document.getElementById("skillChecks"),
+      saveAgentSkills: document.getElementById("saveAgentSkills"),
+      modelAdapterSelect: document.getElementById("modelAdapterSelect"),
+      modelInput: document.getElementById("modelInput"),
+      ragStoreSelect: document.getElementById("ragStoreSelect"),
+      topKInput: document.getElementById("topKInput"),
+      ragToggle: document.getElementById("ragToggle"),
+      thinkingToggle: document.getElementById("thinkingToggle"),
+      waitMode: document.getElementById("waitMode"),
+      streamMode: document.getElementById("streamMode"),
+      fileInput: document.getElementById("fileInput"),
+      fileLine: document.getElementById("fileLine"),
+      taskInput: document.getElementById("taskInput"),
+      reloadButton: document.getElementById("reloadButton"),
+      runButton: document.getElementById("runButton"),
+      clearButton: document.getElementById("clearButton"),
+      output: document.getElementById("output"),
+      thinking: document.getElementById("thinking"),
+      runMeta: document.getElementById("runMeta")
+    };
+
+    async function init() {
+      await Promise.all([loadRegistry(), loadHealth()]);
+      bindEvents();
+    }
+
+    async function loadRegistry() {
+      const response = await fetch("/registry");
+      state.registry = await response.json();
+      renderRegistry();
+    }
+
+    async function loadHealth() {
+      const response = await fetch("/health");
+      state.health = await response.json();
+      const dot = els.healthStatus.querySelector(".dot");
+      const label = els.healthStatus.querySelector("span:last-child");
+      dot.className = "dot " + (state.health.status === "ok" ? "ok" : "error");
+      label.textContent = state.health.status;
+    }
+
+    function bindEvents() {
+      els.agentSelect.addEventListener("change", renderSkillControls);
+      els.modelAdapterSelect.addEventListener("change", syncModelName);
+      els.fileInput.addEventListener("change", validateFiles);
+      els.saveAgentSkills.addEventListener("click", saveAgentSkills);
+      els.reloadButton.addEventListener("click", reloadConfig);
+      els.runButton.addEventListener("click", runTask);
+      els.clearButton.addEventListener("click", clearOutput);
+      els.waitMode.addEventListener("click", () => setOutputMode(false));
+      els.streamMode.addEventListener("click", () => setOutputMode(true));
+    }
+
+    function renderRegistry() {
+      fillSelect(els.agentSelect, Object.keys(state.registry.agents));
+      fillSelect(els.modelAdapterSelect, Object.keys(state.registry.model_adapters));
+      fillSelect(els.ragStoreSelect, Object.keys(state.registry.rag_stores));
+      syncModelName();
+      renderSkillControls();
+    }
+
+    function renderSkillControls() {
+      const agentName = els.agentSelect.value;
+      const agent = state.registry.agents[agentName];
+      const allSkills = Object.keys(state.registry.skills);
+      const enabled = new Set(agent ? agent.enabled_skills : allSkills);
+      els.skillChecks.innerHTML = "";
+
+      allSkills.forEach((name) => {
+        const row = document.createElement("label");
+        row.className = "check-row";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.value = name;
+        input.checked = enabled.has(name);
+        input.addEventListener("change", syncSkillSelect);
+        const span = document.createElement("span");
+        span.textContent = name;
+        row.append(input, span);
+        els.skillChecks.append(row);
+      });
+
+      syncSkillSelect();
+    }
+
+    function syncSkillSelect() {
+      const selected = selectedSkillNames();
+      fillSelect(els.skillSelect, selected);
+      if (selected.includes("OllamaSkill")) {
+        els.skillSelect.value = "OllamaSkill";
+      }
+    }
+
+    function selectedSkillNames() {
+      return Array.from(els.skillChecks.querySelectorAll("input:checked")).map((item) => item.value);
+    }
+
+    function syncModelName() {
+      const adapter = state.registry.model_adapters[els.modelAdapterSelect.value];
+      els.modelInput.value = adapter && adapter.model ? adapter.model : "";
+    }
+
+    function fillSelect(select, values) {
+      select.innerHTML = "";
+      values.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.append(option);
+      });
+    }
+
+    async function saveAgentSkills() {
+      const response = await fetch("/admin/agent-skills", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          agent: els.agentSelect.value,
+          enabled_skills: selectedSkillNames()
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setMeta(payload.detail || "save failed");
+        return;
+      }
+      state.registry.agents[payload.agent].enabled_skills = payload.enabled_skills;
+      setMeta("组合已保存");
+    }
+
+    async function reloadConfig() {
+      await fetch("/admin/reload", {method: "POST"});
+      await Promise.all([loadRegistry(), loadHealth()]);
+      setMeta("配置已重载");
+    }
+
+    function setOutputMode(stream) {
+      state.stream = stream;
+      els.waitMode.classList.toggle("active", !stream);
+      els.streamMode.classList.toggle("active", stream);
+    }
+
+    function validateFiles() {
+      const files = Array.from(els.fileInput.files);
+      if (files.length > 5) {
+        els.fileInput.value = "";
+        els.fileLine.textContent = "最多 5 个文件";
+        return false;
+      }
+      els.fileLine.textContent = `${files.length} / 5`;
+      return true;
+    }
+
+    function buildFormData() {
+      const data = new FormData();
+      data.append("task", els.taskInput.value);
+      data.append("agent", els.agentSelect.value);
+      data.append("skill", els.skillSelect.value);
+      data.append("model_adapter", els.modelAdapterSelect.value);
+      data.append("model", els.modelInput.value);
+      data.append("rag_enabled", String(els.ragToggle.checked));
+      data.append("vector_store_name", els.ragStoreSelect.value);
+      data.append("think", String(els.thinkingToggle.checked));
+      data.append("top_k", els.topKInput.value);
+      Array.from(els.fileInput.files).forEach((file) => data.append("files", file));
+      return data;
+    }
+
+    async function runTask() {
+      if (!validateFiles()) {
+        return;
+      }
+      clearOutput();
+      els.runButton.disabled = true;
+      setMeta("running");
+      try {
+        if (state.stream) {
+          await runStream();
+        } else {
+          await runWait();
+        }
+      } catch (error) {
+        appendOutput(String(error));
+        setMeta("failed");
+      } finally {
+        els.runButton.disabled = false;
+      }
+    }
+
+    async function runWait() {
+      const response = await fetch("/task/submit-form", {
+        method: "POST",
+        body: buildFormData()
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.status === "failed") {
+        appendOutput(payload.detail || payload.error || "failed");
+        setMeta("failed");
+        return;
+      }
+      appendOutput(payload.content || "");
+      const finalStep = payload.steps && payload.steps[payload.steps.length - 1];
+      const thinking = finalStep && finalStep.result ? finalStep.result.thinking : "";
+      if (thinking) {
+        appendThinking(thinking);
+      }
+      setMeta(`success · ${payload.task_id}`);
+    }
+
+    async function runStream() {
+      const response = await fetch("/task/stream", {
+        method: "POST",
+        body: buildFormData()
+      });
+      if (!response.ok || !response.body) {
+        appendOutput(await response.text());
+        setMeta("failed");
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, {stream: true});
+        buffer = consumeSseBuffer(buffer);
+      }
+      consumeSseBuffer(buffer + "\n\n");
+    }
+
+    function consumeSseBuffer(buffer) {
+      const chunks = buffer.split("\n\n");
+      const rest = chunks.pop() || "";
+      chunks.forEach((chunk) => {
+        const line = chunk.split("\n").find((item) => item.startsWith("data: "));
+        if (!line) {
+          return;
+        }
+        const payload = JSON.parse(line.slice(6));
+        if (payload.event === "content") {
+          appendOutput(payload.delta || "");
+        } else if (payload.event === "thinking") {
+          appendThinking(payload.delta || "");
+        } else if (payload.event === "task") {
+          setMeta(`running · ${payload.task_id}`);
+        } else if (payload.event === "done") {
+          setMeta(`success · ${payload.result.task_id}`);
+        } else if (payload.event === "error") {
+          appendOutput(payload.error || "failed");
+          setMeta("failed");
+        }
+      });
+      return rest;
+    }
+
+    function clearOutput() {
+      els.output.textContent = "";
+      els.thinking.textContent = "";
+      setMeta("idle");
+    }
+
+    function appendOutput(text) {
+      els.output.textContent += text;
+      els.output.scrollTop = els.output.scrollHeight;
+    }
+
+    function appendThinking(text) {
+      els.thinking.textContent += text;
+      els.thinking.scrollTop = els.thinking.scrollHeight;
+    }
+
+    function setMeta(text) {
+      els.runMeta.textContent = text;
+    }
+
+    init().catch((error) => {
+      els.healthStatus.querySelector(".dot").className = "dot error";
+      els.healthStatus.querySelector("span:last-child").textContent = "error";
+      appendOutput(String(error));
+    });
+  </script>
+</body>
+</html>

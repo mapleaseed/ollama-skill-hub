@@ -8,6 +8,7 @@ dependencies:
   - pip:
       - fastapi
       - httpx
+      - python-multipart
       - requests
       - pyyaml
       - uvicorn

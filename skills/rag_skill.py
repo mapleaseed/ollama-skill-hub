@@ -44,8 +44,8 @@ class RAGSkill(BaseSkill):
     def _search(self, inputs: dict) -> dict:
         prompt = inputs["prompt"]
         top_k = int(inputs.get("top_k", 5))
-        embedding = self._get_embedding_adapter()
-        store = self._get_vector_store()
+        embedding = self._get_embedding_adapter(inputs)
+        store = self._get_vector_store(inputs)
         vector_result = embedding.embed([prompt])
         embeddings = vector_result.get("embeddings") or []
         if not embeddings:
@@ -70,8 +70,8 @@ class RAGSkill(BaseSkill):
         documents = inputs.get("documents") or []
         if not documents:
             return {"skill": self.name, "store": self.vector_store_name, "inserted": 0}
-        embedding = self._get_embedding_adapter()
-        store = self._get_vector_store()
+        embedding = self._get_embedding_adapter(inputs)
+        store = self._get_vector_store(inputs)
         texts = [item.get("text", "") for item in documents]
         vector_result = embedding.embed(texts)
         embeddings = vector_result.get("embeddings") or []
@@ -83,12 +83,14 @@ class RAGSkill(BaseSkill):
         result = store.upsert(enriched)
         return {"skill": self.name, **result}
 
-    def _get_embedding_adapter(self):
-        if self.embedding_adapter_name not in self.model_adapters:
-            raise KeyError(f"向量模型适配器未加载: {self.embedding_adapter_name}")
-        return self.model_adapters[self.embedding_adapter_name]
+    def _get_embedding_adapter(self, inputs: dict):
+        adapter_name = inputs.get("embedding_adapter_name") or self.embedding_adapter_name
+        if adapter_name not in self.model_adapters:
+            raise KeyError(f"向量模型适配器未加载: {adapter_name}")
+        return self.model_adapters[adapter_name]
 
-    def _get_vector_store(self):
-        if self.vector_store_name not in self.rag_stores:
-            raise KeyError(f"向量库适配器未加载: {self.vector_store_name}")
-        return self.rag_stores[self.vector_store_name]
+    def _get_vector_store(self, inputs: dict):
+        store_name = inputs.get("vector_store_name") or inputs.get("rag_store") or self.vector_store_name
+        if store_name not in self.rag_stores:
+            raise KeyError(f"向量库适配器未加载: {store_name}")
+        return self.rag_stores[store_name]

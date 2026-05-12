@@ -23,7 +23,7 @@ model_adapters:
       timeout: 120
   - name: Qwen3VLAdapter
     path: './adapters/ollama_adapter.py'
-    enabled: false
+    enabled: true
     config:
       model: 'qwen3-vl:8b'
       timeout: 120

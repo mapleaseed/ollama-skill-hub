@@ -47,12 +47,32 @@ uvicorn api.server:app --host 127.0.0.1 --port 8008 --reload
 
 启动后访问：
 
+- `GET /admin`：打开管理页面
 - `GET /health`：查看框架与外部服务状态
 - `GET /registry`：查看已加载 Agent/Skill
 - `GET /model-adapters`：查看已加载模型适配器
 - `GET /rag-stores`：查看已加载 RAG 向量库适配器
 - `POST /task/submit`：提交任务
+- `POST /task/submit-form`：表单提交任务，支持最多 5 个上传文件
+- `POST /task/stream`：SSE 流式任务输出
 - `POST /admin/reload`：重载配置
+
+## 管理页面
+
+启动服务后打开：
+
+```text
+http://127.0.0.1:8008/admin
+```
+
+页面支持：
+
+- 运行时切换 Agent、Skill、模型适配器和模型名
+- 保存当前 Agent 的 Skill 白名单组合
+- 控制是否启用 RAG，并选择已加载的向量库适配器
+- 控制 Thinking 模式
+- 切换等待输出或流式输出
+- 上传最多 5 个文件；图片会转换为 base64 传给 Ollama `images` 字段，文本文件会附加到任务上下文
 
 ## 提交任务示例
 
