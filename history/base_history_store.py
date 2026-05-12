@@ -43,6 +43,7 @@ class BaseHistoryStore(ABC):
         status: Optional[str] = None,
         last_model: Optional[str] = None,
         last_skill: Optional[str] = None,
+        touch_updated_at: bool = True,
     ) -> Optional[Dict[str, Any]]:
         pass
 

@@ -148,6 +148,7 @@ class SQLiteHistoryStore(BaseHistoryStore):
         status: Optional[str] = None,
         last_model: Optional[str] = None,
         last_skill: Optional[str] = None,
+        touch_updated_at: bool = True,
     ) -> Optional[Dict[str, Any]]:
         changes = {
             "title": title,
@@ -155,9 +156,12 @@ class SQLiteHistoryStore(BaseHistoryStore):
             "status": status,
             "last_model": last_model,
             "last_skill": last_skill,
-            "updated_at": self._now(),
         }
+        if touch_updated_at:
+            changes["updated_at"] = self._now()
         filtered = {key: value for key, value in changes.items() if value is not None}
+        if not filtered:
+            return self.get_session(session_id)
         assignments = ", ".join(f"{key} = ?" for key in filtered)
         values = list(filtered.values()) + [session_id]
         with self._connect() as conn:

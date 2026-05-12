@@ -26,6 +26,10 @@ class SessionCreateRequest(BaseModel):
     title: Optional[str] = None
 
 
+class SessionUpdateRequest(BaseModel):
+    title: Optional[str] = None
+
+
 app = FastAPI(title="ollama-skill-hub", version="0.1.0")
 task_manager = TaskManager.from_config(str(CONFIG_PATH))
 
@@ -186,6 +190,22 @@ def create_session(request: SessionCreateRequest):
 def get_session(session_id: str):
     store = _get_history_store()
     session = store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="session not found")
+    return session
+
+
+@app.patch('/api/sessions/{session_id}')
+def update_session(session_id: str, request: SessionUpdateRequest):
+    store = _get_existing_history_store(session_id)
+    title = (request.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title 不能为空")
+    session = store.update_session(
+        session_id=session_id,
+        title=title[:80],
+        touch_updated_at=False,
+    )
     if not session:
         raise HTTPException(status_code=404, detail="session not found")
     return session
@@ -447,6 +467,8 @@ def _save_assistant_result(
 ) -> None:
     content = result.get("content") or result.get("error") or ""
     thinking = _last_step_field(result, "thinking")
+    session = store.get_session(session_id) or {}
+    summary_source = content or result.get("error") or task
     store.append_message(
         session_id=session_id,
         role="assistant",
@@ -457,8 +479,8 @@ def _save_assistant_result(
     )
     store.update_session(
         session_id=session_id,
-        title=_session_title(task),
-        summary=_session_summary(content or result.get("error") or task),
+        title=_auto_session_title(session, summary_source),
+        summary=_session_summary(summary_source),
         status=result.get("status", "success"),
         last_model=_last_step_field(result, "model"),
         last_skill=_last_step_skill(result),
@@ -508,9 +530,10 @@ def _stream_session_events(
         run_config=run_config,
         attachments=attachments,
     )
+    session = store.get_session(session_id) or {}
     store.update_session(
         session_id=session_id,
-        title=_session_title(task),
+        title=_auto_session_title(session, content or task),
         summary=_session_summary(content),
         status=status,
         last_model=_last_step_field(final_result or {}, "model") or run_config.get("model", ""),
@@ -541,6 +564,13 @@ def _last_step_skill(result: Dict[str, Any]) -> str:
     if not steps:
         return ""
     return steps[-1].get("skill") or ""
+
+
+def _auto_session_title(session: Dict[str, Any], source: str) -> Optional[str]:
+    current = (session.get("title") or "").strip()
+    if current and current != "新会话":
+        return None
+    return _session_title(source)
 
 
 def _session_title(task: str) -> str:
